@@ -1,0 +1,6 @@
+[tools]
+"erlang" = "27.2.2"
+"elixir" = "1.18.2-otp-27"
+
+[tasks.setup]
+run = ["mix deps.get"]
