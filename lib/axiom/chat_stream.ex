@@ -6,10 +6,11 @@ defmodule Axiom.ChatStream do
   defmodule State do
     @moduledoc false
 
-    defstruct [:name, :api_url, :api_key, caller_store: %{}]
+    defstruct [:name, :provider, :api_url, :api_key, caller_store: %{}]
 
     @type t :: %__MODULE__{
             name: atom(),
+            provider: atom,
             api_url: String.t(),
             api_key: String.t(),
             caller_store: %{Finch.request_ref() => pid()}
@@ -33,10 +34,13 @@ defmodule Axiom.ChatStream do
 
   def start_link(opts) do
     name = Keyword.get(opts, :name)
+    provider = Keyword.get(opts, :provider)
     api_url = Keyword.get(opts, :api_url)
     api_key = Keyword.get(opts, :api_key)
 
-    GenServer.start_link(__MODULE__, %State{name: name, api_url: api_url, api_key: api_key},
+    GenServer.start_link(
+      __MODULE__,
+      %State{name: name, provider: provider, api_url: api_url, api_key: api_key},
       name: name
     )
   end
@@ -81,14 +85,6 @@ defmodule Axiom.ChatStream do
   end
 
   @impl true
-  def handle_info({ref, {:data, <<"data:" <> rest>>}}, state) do
-    # 解码后发送给调用端（JSON 模块每秒足以完成数万次解码，可忽略对 GenServer 的负面影响）
-    caller_send(state, ref, {:data, JSON.decode!(rest)})
-
-    {:noreply, state}
-  end
-
-  @impl true
   def handle_info({ref, {:data, data}}, state) do
     caller_send(state, ref, {:data, data})
 
@@ -103,6 +99,12 @@ defmodule Axiom.ChatStream do
   @impl true
   def handle_info({ref, {:status, 401}}, state) do
     caller_send(state, ref, {:error, 401})
+
+    {:noreply, remove_caller(state, ref)}
+  end
+
+  def handle_info({ref, {:error, error}}, state) when is_struct(error, Mint.TransportError) do
+    caller_send(state, ref, {:error, error.reason})
 
     {:noreply, remove_caller(state, ref)}
   end
