@@ -6,12 +6,12 @@ defmodule Axiom.ChatStream do
   defmodule State do
     @moduledoc false
 
-    defstruct [:name, :api_key, client_store: %{}]
+    defstruct [:name, :api_key, caller_store: %{}]
 
     @type t :: %__MODULE__{
             name: atom(),
             api_key: String.t(),
-            client_store: %{Finch.request_ref() => pid()}
+            caller_store: %{Finch.request_ref() => pid()}
           }
   end
 
@@ -40,7 +40,7 @@ defmodule Axiom.ChatStream do
       |> Finch.build(url, headers, JSON.encode!(body))
       |> Finch.async_request(Axiom.Chat)
 
-    {:reply, ref, put_client(state, ref, pid)}
+    {:reply, ref, put_caller(state, ref, pid)}
   end
 
   @impl true
@@ -55,7 +55,7 @@ defmodule Axiom.ChatStream do
 
   @impl true
   def handle_info({ref, {:data, <<"data: [DONE]\n\n">>}}, state) do
-    caller = Map.get(state.client_store, ref)
+    caller = Map.get(state.caller_store, ref)
     Process.send(caller, :done, [])
 
     {:noreply, state}
@@ -63,10 +63,9 @@ defmodule Axiom.ChatStream do
 
   @impl true
   def handle_info({ref, {:data, <<"data:" <> rest>>}}, state) do
-    caller = Map.get(state.client_store, ref)
+    caller = Map.get(state.caller_store, ref)
 
-    # 解码后发送给调用端
-    # JSON 模块每秒可以执行数万次解码，故忽略对 GenServer 的负面影响
+    # 解码后发送给调用端（JSON 模块每秒足以完成数万次解码，可忽略对 GenServer 的负面影响）
     Process.send(caller, {:data, JSON.decode!(rest)}, [])
 
     {:noreply, state}
@@ -74,7 +73,7 @@ defmodule Axiom.ChatStream do
 
   @impl true
   def handle_info({ref, {:data, data}}, state) do
-    caller = Map.get(state.client_store, ref)
+    caller = Map.get(state.caller_store, ref)
 
     Process.send(caller, {:data, data}, [])
 
@@ -83,14 +82,18 @@ defmodule Axiom.ChatStream do
 
   @impl true
   def handle_info({ref, :done}, state) do
-    {:noreply, remove_client(state, ref)}
+    {:noreply, remove_caller(state, ref)}
   end
 
-  defp put_client(state, ref, caller) do
-    Map.update(state, :client_store, %{}, fn store -> Map.put(store, ref, caller) end)
+  defp put_caller(state, ref, caller) do
+    update_caller_store(state, fn store -> Map.put(store, ref, caller) end)
   end
 
-  defp remove_client(state, ref) do
-    Map.update(state, :client_store, %{}, fn store -> Map.delete(store, ref) end)
+  defp remove_caller(state, ref) do
+    update_caller_store(state, fn store -> Map.delete(store, ref) end)
+  end
+
+  defp update_caller_store(state, update_fun) do
+    Map.update(state, :caller_store, %{}, update_fun)
   end
 end
