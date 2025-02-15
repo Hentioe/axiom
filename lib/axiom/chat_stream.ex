@@ -6,42 +6,48 @@ defmodule Axiom.ChatStream do
   defmodule State do
     @moduledoc false
 
-    defstruct [:name, :provider, :api_url, :api_key, caller_store: %{}]
+    defstruct [:provider, :api_url, :api_key, headers: [], caller_store: %{}]
 
     @type t :: %__MODULE__{
-            name: atom(),
-            provider: atom,
+            provider: module(),
             api_url: String.t(),
             api_key: String.t(),
+            headers: Finch.Request.headers(),
             caller_store: %{Finch.request_ref() => pid()}
           }
   end
 
   def spec(provider, name, api_key, opts \\ []) do
-    {__MODULE__, _spec(provider, name, api_key, opts)}
-  end
+    # todo: 检查 provider 是否实现了 Axiom.Provider 协议
+    args =
+      [
+        name: name,
+        provider: provider,
+        api_key: api_key
+      ]
 
-  def _spec(:siliconflow, name, api_key, _opts) do
-    [name: name, api_url: "https://api.siliconflow.cn/v1/chat/completions", api_key: api_key]
-  end
+    config =
+      provider
+      |> apply(:config, [opts])
+      |> Keyword.delete(:name)
+      |> Keyword.delete(:provider)
+      |> Keyword.delete(:api_key)
 
-  def _spec(:volcengine, name, api_key, opts) do
-    region = Keyword.get(opts, :region, "cn-beijing")
-    api_url = "https://ark.#{region}.volces.com/api/v3/chat/completions"
+    args = Keyword.merge(args, config)
 
-    [name: name, api_url: api_url, api_key: api_key]
+    {__MODULE__, args}
   end
 
   def start_link(opts) do
-    name = Keyword.get(opts, :name)
-    provider = Keyword.get(opts, :provider)
-    api_url = Keyword.get(opts, :api_url)
-    api_key = Keyword.get(opts, :api_key)
-
     GenServer.start_link(
       __MODULE__,
-      %State{name: name, provider: provider, api_url: api_url, api_key: api_key},
-      name: name
+      %State{
+        provider: Keyword.get(opts, :provider),
+        api_url: Keyword.get(opts, :api_url),
+        api_key: Keyword.get(opts, :api_key),
+        headers: Keyword.get(opts, :headers, [])
+      },
+      name: Keyword.get(opts, :name)
     )
   end
 
@@ -52,12 +58,13 @@ defmodule Axiom.ChatStream do
 
   @impl true
   def handle_call({:send, body}, {pid, _}, state) do
-    headers = [
-      {"authorization", "Bearer #{state.api_key}"},
-      {"content-type", "application/json"}
-    ]
+    headers =
+      [
+        {"authorization", "Bearer #{state.api_key}"},
+        {"content-type", "application/json"}
+      ] ++ state.headers
 
-    body = Map.put(body, "stream", true)
+    body = apply(state.provider, :streamized_body, [body])
 
     ref =
       :post
@@ -65,6 +72,13 @@ defmodule Axiom.ChatStream do
       |> Finch.async_request(Axiom.Chat)
 
     {:reply, ref, put_caller(state, ref, pid)}
+  end
+
+  @impl true
+  def handle_call({:gen_input_body, model, messages}, _from, state) do
+    body = apply(state.provider, :gen_input_body, [model, messages])
+
+    {:reply, body, state}
   end
 
   @impl true
@@ -81,7 +95,7 @@ defmodule Axiom.ChatStream do
   def handle_info({ref, {:data, <<"data: [DONE]\n\n">>}}, state) do
     caller_send(state, ref, :done)
 
-    {:noreply, state}
+    {:noreply, remove_caller(state, ref)}
   end
 
   @impl true
@@ -93,6 +107,8 @@ defmodule Axiom.ChatStream do
 
   @impl true
   def handle_info({ref, :done}, state) do
+    caller_send(state, ref, :done)
+
     {:noreply, remove_caller(state, ref)}
   end
 
