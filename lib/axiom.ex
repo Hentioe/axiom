@@ -14,8 +14,19 @@ defmodule Axiom do
     name = Keyword.get(init_arg, :name)
     finch_name = String.to_atom(finch_name(name))
 
+    finch_conn_opts =
+      if proxy = Keyword.get(init_arg, :proxy, []) do
+        [:proxy, proxy]
+      else
+        []
+      end
+
     children = [
-      {Finch, name: finch_name},
+      {Finch,
+       name: finch_name,
+       pools: [
+         default: [conn_opts: finch_conn_opts]
+       ]},
       Axiom.ChatStream.new(init_arg)
     ]
 
@@ -51,7 +62,14 @@ defmodule Axiom do
       |> Keyword.delete(:provider)
       |> Keyword.delete(:api_key)
 
-    args = Keyword.merge(args, config)
+    args =
+      args
+      |> Keyword.merge(config)
+      |> Keyword.merge(
+        proxy: Keyword.get(opts, :proxy),
+        request_timeout: Keyword.get(opts, :request_timeout, 15_000),
+        receive_timeout: Keyword.get(opts, :receive_timeout, 30_000)
+      )
 
     {__MODULE__, args}
   end

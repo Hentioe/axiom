@@ -6,13 +6,26 @@ defmodule Axiom.ChatStream do
   defmodule State do
     @moduledoc false
 
-    defstruct [:name, :provider, :api_url, :api_key, headers: [], caller_store: %{}]
+    defstruct [
+      :name,
+      :provider,
+      :api_url,
+      :api_key,
+      :request_timeout,
+      :receive_timeout,
+      :finch_name,
+      headers: [],
+      caller_store: %{}
+    ]
 
     @type t :: %__MODULE__{
             name: String.t(),
             provider: module(),
             api_url: String.t(),
             api_key: String.t(),
+            request_timeout: timeout,
+            receive_timeout: timeout,
+            finch_name: atom,
             headers: Finch.Request.headers(),
             caller_store: %{Finch.request_ref() => pid()}
           }
@@ -24,7 +37,11 @@ defmodule Axiom.ChatStream do
 
   def start_link(opts) do
     name = Keyword.get(opts, :name)
-    stream_name = String.to_atom(Axiom.stream_name(name))
+    request_timeout = Keyword.get(opts, :request_timeout)
+    receive_timeout = Keyword.get(opts, :receive_timeout)
+
+    pname = String.to_atom(Axiom.stream_name(name))
+    finch_name = String.to_atom(Axiom.finch_name(name))
 
     GenServer.start_link(
       __MODULE__,
@@ -33,9 +50,12 @@ defmodule Axiom.ChatStream do
         provider: Keyword.get(opts, :provider),
         api_url: Keyword.get(opts, :api_url),
         api_key: Keyword.get(opts, :api_key),
+        request_timeout: request_timeout,
+        receive_timeout: receive_timeout,
+        finch_name: finch_name,
         headers: Keyword.get(opts, :headers, [])
       },
-      name: stream_name
+      name: pname
     )
   end
 
@@ -55,7 +75,10 @@ defmodule Axiom.ChatStream do
     ref =
       :post
       |> Finch.build(state.api_url, headers, JSON.encode!(body))
-      |> Finch.async_request(String.to_atom(Axiom.finch_name(state.name)))
+      |> Finch.async_request(state.finch_name,
+        request_timeout: state.request_timeout,
+        receive_timeout: state.receive_timeout
+      )
 
     {:reply, ref, put_caller(state, ref, pid)}
   end
