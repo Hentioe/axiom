@@ -52,8 +52,6 @@ defmodule Axiom.ChatStream do
         {"content-type", "application/json"}
       ] ++ state.headers
 
-    body = apply(state.provider, :streamized_body, [body])
-
     ref =
       :post
       |> Finch.build(state.api_url, headers, JSON.encode!(body))
@@ -63,8 +61,8 @@ defmodule Axiom.ChatStream do
   end
 
   @impl true
-  def handle_call({:gen_input_body, model, messages}, _from, state) do
-    body = apply(state.provider, :gen_input_body, [model, messages])
+  def handle_call({:inputgen, model, messages, opts}, _from, state) do
+    body = apply(state.provider, :inputgen, [model, messages, opts])
 
     {:reply, body, state}
   end
