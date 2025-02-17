@@ -1,12 +1,14 @@
 defmodule Axiom.Chat.Completions do
   @moduledoc false
 
+  defmodule StreamingError do
+    defexception [:message, :detail, chunks: []]
+  end
+
   defmodule Created do
     @moduledoc false
 
     require Logger
-
-    alias Axiom.StreamingError
 
     defstruct [:ref, :body_stream]
 
@@ -30,16 +32,34 @@ defmodule Axiom.Chat.Completions do
           {:data, data}
 
         {^ref, {:status, 401}} ->
-          {:error, 401}
+          {:error, :unauthorized}
+
+        {^ref, {:status, code}} ->
+          {:error, %{kind: :status_code, reason: code}}
 
         {^ref, {:error, error}} when is_struct(error, Mint.TransportError) ->
-          {:error, error.reason}
+          {:error, %{kind: :transport, reason: error.reason}}
 
         {^ref, msg} ->
           Logger.warning("Received unknown Finch response message: #{inspect(msg)}")
 
           :cont
       end
+    end
+
+    defp raise_error(:unauthorized = detail, chunks) do
+      raise StreamingError, message: "Unauthorized", detail: detail, chunks: chunks
+    end
+
+    defp raise_error(%{kind: :status_code, reason: reason} = detail, chunks) do
+      raise StreamingError,
+        message: "Unexpected status code: #{reason}",
+        detail: detail,
+        chunks: chunks
+    end
+
+    defp raise_error(%{kind: :transport, reason: reason} = detail, chunks) do
+      raise StreamingError, message: "Transport error: #{reason}", detail: detail, chunks: chunks
     end
 
     defp build_start_fun(ref) do
@@ -54,8 +74,8 @@ defmodule Axiom.Chat.Completions do
           :done ->
             []
 
-          {:error, reason} ->
-            raise StreamingError, message: to_string(reason), reason: reason
+          {:error, detail} ->
+            raise_error(detail, [])
         end
       end
     end
@@ -72,8 +92,8 @@ defmodule Axiom.Chat.Completions do
           :done ->
             {:halt, chunks}
 
-          {:error, reason} ->
-            raise StreamingError, message: to_string(reason), reason: reason, chunks: chunks
+          {:error, detail} ->
+            raise_error(detail, chunks)
         end
       end
     end
