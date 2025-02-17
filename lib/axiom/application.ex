@@ -10,7 +10,6 @@ defmodule Axiom.Application do
     children = [
       # Starts a worker by calling: Axiom.Worker.start_link(arg)
       # {Axiom.Worker, arg}
-      {Finch, name: Axiom.Chat}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

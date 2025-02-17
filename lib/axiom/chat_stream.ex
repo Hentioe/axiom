@@ -7,7 +7,6 @@ defmodule Axiom.ChatStream do
     @moduledoc false
 
     defstruct [
-      :name,
       :provider,
       :api_url,
       :api_key,
@@ -19,7 +18,6 @@ defmodule Axiom.ChatStream do
     ]
 
     @type t :: %__MODULE__{
-            name: String.t(),
             provider: module(),
             api_url: String.t(),
             api_key: String.t(),
@@ -37,16 +35,13 @@ defmodule Axiom.ChatStream do
 
   def start_link(opts) do
     name = Keyword.get(opts, :name)
+    finch_name = Keyword.get(opts, :finch_name)
     request_timeout = Keyword.get(opts, :request_timeout)
     receive_timeout = Keyword.get(opts, :receive_timeout)
-
-    pname = String.to_atom(Axiom.stream_name(name))
-    finch_name = String.to_atom(Axiom.finch_name(name))
 
     GenServer.start_link(
       __MODULE__,
       %State{
-        name: name,
         provider: Keyword.get(opts, :provider),
         api_url: Keyword.get(opts, :api_url),
         api_key: Keyword.get(opts, :api_key),
@@ -55,7 +50,7 @@ defmodule Axiom.ChatStream do
         finch_name: finch_name,
         headers: Keyword.get(opts, :headers, [])
       },
-      name: pname
+      name: name
     )
   end
 

@@ -12,25 +12,45 @@ defmodule Axiom do
   @impl true
   def init(init_arg) do
     name = Keyword.get(init_arg, :name)
-    finch_name = String.to_atom(finch_name(name))
+    passed_finch_name = Keyword.get(init_arg, :finch_name)
 
-    finch_conn_opts =
-      if proxy = Keyword.get(init_arg, :proxy, []) do
-        [:proxy, proxy]
+    finch_name =
+      if passed_finch_name do
+        passed_finch_name
       else
-        []
+        String.to_atom(finch_name(name))
       end
 
-    children = [
-      {Finch,
-       name: finch_name,
-       pools: [
-         default: [conn_opts: finch_conn_opts]
-       ]},
-      Axiom.ChatStream.new(init_arg)
-    ]
+    children =
+      if passed_finch_name do
+        []
+      else
+        finch_conn_opts =
+          if proxy = Keyword.get(init_arg, :proxy, []) do
+            [:proxy, proxy]
+          else
+            []
+          end
 
-    Supervisor.init(children, strategy: :one_for_one)
+        [
+          {Finch,
+           name: finch_name,
+           pools: [
+             default: [conn_opts: finch_conn_opts]
+           ]}
+        ]
+      end
+
+    chat_stream_opts =
+      Keyword.merge(init_arg, name: String.to_atom(stream_name(name)), finch_name: finch_name)
+
+    children =
+      children ++
+        [
+          Axiom.ChatStream.new(chat_stream_opts)
+        ]
+
+    Supervisor.init(children |> IO.inspect(), strategy: :one_for_one)
   end
 
   def sup_name(name) do
@@ -45,7 +65,7 @@ defmodule Axiom do
     sup_name(name) <> ".finch"
   end
 
-  @spec new(module(), String.t(), String.t(), Keyword.t()) :: {__MODULE__, Keyword.t()}
+  @spec new(module(), String.t(), String.t(), Keyword.t()) :: Supervisor.child_spec()
   def new(provider, name, api_key, opts \\ []) do
     # todo: 检查 provider 是否实现了 Axiom.Provider 协议
     args =
@@ -66,11 +86,12 @@ defmodule Axiom do
       args
       |> Keyword.merge(config)
       |> Keyword.merge(
+        finch_name: Keyword.get(opts, :finch_name),
         proxy: Keyword.get(opts, :proxy),
         request_timeout: Keyword.get(opts, :request_timeout, 15_000),
         receive_timeout: Keyword.get(opts, :receive_timeout, 30_000)
       )
 
-    {__MODULE__, args}
+    Supervisor.child_spec({__MODULE__, args}, id: String.to_atom(name))
   end
 end
