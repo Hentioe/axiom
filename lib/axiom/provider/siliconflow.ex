@@ -4,8 +4,8 @@ defmodule Axiom.Provider.Siliconflow do
   use Axiom.Provider
 
   def config(_opts) do
-    [
+    %{
       api_url: "https://api.siliconflow.cn/v1/chat/completions"
-    ]
+    }
   end
 end

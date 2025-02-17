@@ -1,97 +1,60 @@
 defmodule Axiom do
   @moduledoc false
 
-  use Supervisor
+  defstruct [
+    :provider,
+    :api_url,
+    :api_key,
+    :request_timeout,
+    :receive_timeout,
+    :finch_name,
+    headers: []
+  ]
 
-  def start_link(opts) do
-    name = Keyword.get(opts, :name)
+  @type t :: %__MODULE__{
+          provider: module(),
+          api_url: String.t(),
+          api_key: String.t(),
+          request_timeout: timeout,
+          receive_timeout: timeout,
+          finch_name: atom,
+          headers: Finch.Request.headers()
+        }
 
-    Supervisor.start_link(__MODULE__, opts, name: String.to_atom(sup_name(name)))
-  end
-
-  @impl true
-  def init(init_arg) do
-    name = Keyword.get(init_arg, :name)
-    passed_finch_name = Keyword.get(init_arg, :finch_name)
-
-    finch_name =
-      if passed_finch_name do
-        passed_finch_name
-      else
-        String.to_atom(finch_name(name))
-      end
-
-    children =
-      if passed_finch_name do
-        []
-      else
-        finch_conn_opts =
-          if proxy = Keyword.get(init_arg, :proxy, []) do
-            [:proxy, proxy]
-          else
-            []
-          end
-
-        [
-          {Finch,
-           name: finch_name,
-           pools: [
-             default: [conn_opts: finch_conn_opts]
-           ]}
-        ]
-      end
-
-    chat_stream_opts =
-      Keyword.merge(init_arg, name: String.to_atom(stream_name(name)), finch_name: finch_name)
-
-    children =
-      children ++
-        [
-          Axiom.ChatStream.new(chat_stream_opts)
-        ]
-
-    Supervisor.init(children, strategy: :one_for_one)
-  end
-
-  def sup_name(name) do
-    "axiom_sup." <> name
-  end
-
-  def stream_name(name) do
-    sup_name(name) <> ".chat_stream"
-  end
-
-  def finch_name(name) do
-    sup_name(name) <> ".finch"
-  end
-
-  @spec new(module(), String.t(), String.t(), Keyword.t()) :: Supervisor.child_spec()
-  def new(provider, name, api_key, opts \\ []) do
-    # todo: 检查 provider 是否实现了 Axiom.Provider 协议
+  @spec build(module(), String.t(), keyword()) :: t()
+  def build(provider, api_key, opts \\ []) do
     args =
-      [
-        name: name,
+      %{
         provider: provider,
         api_key: api_key
-      ]
+      }
 
     config =
       provider
       |> apply(:config, [opts])
-      |> Keyword.delete(:name)
-      |> Keyword.delete(:provider)
-      |> Keyword.delete(:api_key)
+      |> Map.delete(:provider)
+      |> Map.delete(:api_key)
 
-    args =
-      args
-      |> Keyword.merge(config)
-      |> Keyword.merge(
-        finch_name: Keyword.get(opts, :finch_name),
-        proxy: Keyword.get(opts, :proxy),
-        request_timeout: Keyword.get(opts, :request_timeout, 15_000),
-        receive_timeout: Keyword.get(opts, :receive_timeout, 30_000)
-      )
+    struct(__MODULE__, Map.merge(args, config))
+  end
 
-    Supervisor.child_spec({__MODULE__, args}, id: String.to_atom(name))
+  @spec with_api_url(t(), String.t()) :: t()
+  def with_api_url(axiom, api_url) when is_struct(axiom, __MODULE__) do
+    %{axiom | api_url: api_url}
+  end
+
+  @spec with_timeout(t(), timeout(), timeout()) :: t()
+  def with_timeout(axiom, request_timeout, receive_timeout) when is_struct(axiom, __MODULE__) do
+    %{axiom | request_timeout: request_timeout, receive_timeout: receive_timeout}
+  end
+
+  @spec with_finch_name(t(), atom()) :: t()
+  def with_finch_name(axiom, finch_name) when is_struct(axiom, __MODULE__) do
+    %{axiom | finch_name: finch_name}
+  end
+
+  @spec with_headers(t(), Finch.Request.headers()) :: t()
+  def with_headers(axiom, headers) do
+    %{axiom | headers: axiom.headers ++ headers}
   end
 end

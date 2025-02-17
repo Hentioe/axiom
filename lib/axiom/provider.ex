@@ -1,7 +1,7 @@
 defmodule Axiom.Provider do
   @moduledoc false
 
-  @callback config(opts :: keyword) :: keyword
+  @callback config(opts :: keyword) :: map()
   @callback inputgen(model :: String.t(), messages :: [map], opts :: map) :: map
 
   defmacro __using__(_) do
