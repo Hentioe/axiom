@@ -1,4 +1,4 @@
-defmodule Axiom.Parsers.StreamDataParser do
+defmodule Axiom.Parsers.ChunksParser do
   @moduledoc false
 
   @ignored_data ["", "data: [DONE]"]

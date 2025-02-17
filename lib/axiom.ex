@@ -50,7 +50,7 @@ defmodule Axiom do
           Axiom.ChatStream.new(chat_stream_opts)
         ]
 
-    Supervisor.init(children |> IO.inspect(), strategy: :one_for_one)
+    Supervisor.init(children, strategy: :one_for_one)
   end
 
   def sup_name(name) do

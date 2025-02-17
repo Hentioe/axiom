@@ -29,6 +29,52 @@ defmodule Axiom.ChatStream do
           }
   end
 
+  defmodule Created do
+    @moduledoc false
+
+    alias Axiom.StreamingError
+
+    defstruct [:ref, :body_stream]
+
+    @type t :: %__MODULE__{ref: Finch.request_ref(), body_stream: Enumerable.t()}
+
+    defp receive_chunk! do
+      receive do
+        {:data, data} ->
+          [data]
+
+        :done ->
+          []
+
+        {:error, reason} ->
+          raise StreamingError, message: to_string(reason), reason: reason
+      end
+    end
+
+    defp receive_chunk!(chunks) do
+      receive do
+        {:data, data} ->
+          {[data], chunks ++ [data]}
+
+        :done ->
+          {:halt, chunks}
+
+        {:error, reason} ->
+          raise StreamingError, message: to_string(reason), reason: reason, chunks: chunks
+      end
+    end
+
+    defp cleanup(_chunks) do
+      :cleanup
+    end
+
+    def new(ref) do
+      body_stream = Stream.resource(&receive_chunk!/0, &receive_chunk!/1, &cleanup/1)
+
+      %__MODULE__{ref: ref, body_stream: body_stream}
+    end
+  end
+
   def new(args) do
     {__MODULE__, args}
   end
@@ -75,7 +121,7 @@ defmodule Axiom.ChatStream do
         receive_timeout: state.receive_timeout
       )
 
-    {:reply, ref, put_caller(state, ref, pid)}
+    {:reply, Created.new(ref), put_caller(state, ref, pid)}
   end
 
   @impl true
