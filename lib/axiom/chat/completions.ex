@@ -4,6 +4,8 @@ defmodule Axiom.Chat.Completions do
   alias Axiom.JSON
 
   defmodule StreamingError do
+    @moduledoc false
+
     defexception [:message, :detail, chunks: []]
   end
 
@@ -36,8 +38,8 @@ defmodule Axiom.Chat.Completions do
         {^ref, {:status, 401}} ->
           {:error, :unauthorized}
 
-        {^ref, {:status, code}} ->
-          {:error, %{kind: :status_code, reason: code}}
+        {^ref, {:status, _}} ->
+          :cont
 
         {^ref, {:error, error}} when is_struct(error, Mint.TransportError) ->
           {:error, %{kind: :transport, reason: error.reason}}
@@ -51,13 +53,6 @@ defmodule Axiom.Chat.Completions do
 
     defp raise_error(:unauthorized = detail, chunks) do
       raise StreamingError, message: "Unauthorized", detail: detail, chunks: chunks
-    end
-
-    defp raise_error(%{kind: :status_code, reason: reason} = detail, chunks) do
-      raise StreamingError,
-        message: "Unexpected status code: #{reason}",
-        detail: detail,
-        chunks: chunks
     end
 
     defp raise_error(%{kind: :transport, reason: reason} = detail, chunks) do

@@ -3,6 +3,12 @@ defmodule Axiom.Parsers.ChunksParser do
 
   alias Axiom.JSON
 
+  defmodule ParsingError do
+    @moduledoc false
+
+    defexception [:message, :data]
+  end
+
   @ignored_data ["", "data: [DONE]"]
 
   @spec parse(String.t()) :: [map]
@@ -15,6 +21,10 @@ defmodule Axiom.Parsers.ChunksParser do
 
   defp parse_one!(<<"data:" <> rest>>) do
     rest |> String.trim() |> JSON.decode!()
+  end
+
+  defp parse_one!(unkown_data) do
+    raise ParsingError, message: "Invalid chunk data", data: unkown_data
   end
 
   defp data_ignored?(one_data) do
