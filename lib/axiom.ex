@@ -3,7 +3,7 @@ defmodule Axiom do
 
   defstruct [
     :provider,
-    :api_url,
+    :base_url,
     :api_key,
     :request_timeout,
     :receive_timeout,
@@ -13,7 +13,7 @@ defmodule Axiom do
 
   @type t :: %__MODULE__{
           provider: module(),
-          api_url: String.t(),
+          base_url: String.t(),
           api_key: String.t(),
           request_timeout: timeout,
           receive_timeout: timeout,
@@ -38,9 +38,9 @@ defmodule Axiom do
     struct(__MODULE__, Map.merge(args, config))
   end
 
-  @spec with_api_url(t(), String.t()) :: t()
-  def with_api_url(axiom, api_url) when is_struct(axiom, __MODULE__) do
-    %{axiom | api_url: api_url}
+  @spec with_base_url(t(), String.t()) :: t()
+  def with_base_url(axiom, base_url) when is_struct(axiom, __MODULE__) do
+    %{axiom | base_url: base_url}
   end
 
   @spec with_timeout(t(), timeout(), timeout()) :: t()

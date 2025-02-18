@@ -8,7 +8,7 @@ defmodule Axiom.Provider.TencentCloud do
     region = Keyword.get(opts, :region, "ap-shanghai")
 
     %{
-      api_url: "https://api.lkeap.cloud.tencent.com/v1/chat/completions",
+      base_url: "https://api.lkeap.cloud.tencent.com/v1",
       headers: [
         {"X-TC-Region", region}
       ]

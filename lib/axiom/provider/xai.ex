@@ -5,7 +5,7 @@ defmodule Axiom.Provider.XAi do
 
   def config(_opts) do
     %{
-      api_url: "https://api.x.ai/v1/chat/completions"
+      base_url: "https://api.x.ai/v1"
     }
   end
 end
