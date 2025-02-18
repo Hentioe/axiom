@@ -1,6 +1,8 @@
 defmodule Axiom.Chat.Completions do
   @moduledoc false
 
+  alias Axiom.JSON
+
   defmodule StreamingError do
     defexception [:message, :detail, chunks: []]
   end

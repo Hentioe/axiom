@@ -1,6 +1,8 @@
 defmodule Axiom.Parsers.ChunksParser do
   @moduledoc false
 
+  alias Axiom.JSON
+
   @ignored_data ["", "data: [DONE]"]
 
   @spec parse(String.t()) :: [map]

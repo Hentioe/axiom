@@ -57,4 +57,8 @@ defmodule Axiom do
   def with_headers(axiom, headers) do
     %{axiom | headers: axiom.headers ++ headers}
   end
+
+  def json_adapter do
+    Application.get_env(:axiom, :json_adapter)
+  end
 end
