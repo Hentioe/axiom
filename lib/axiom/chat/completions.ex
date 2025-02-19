@@ -14,40 +14,46 @@ defmodule Axiom.Chat.Completions do
 
     require Logger
 
-    defstruct [:ref, :body_stream]
+    defstruct [:async_request, :body_stream]
 
-    @type t :: %__MODULE__{ref: Finch.request_ref(), body_stream: Enumerable.t()}
+    @type t :: %__MODULE__{async_request: (-> Finch.request_ref()), body_stream: Enumerable.t()}
 
-    defp mapping_receive(ref) do
-      receive do
-        {^ref, {:status, 200}} ->
+    def chunk_mapping(chunk) do
+      case chunk do
+        {:status, 200} ->
           :cont
 
-        {^ref, {:headers, _}} ->
+        {:headers, _} ->
           :cont
 
-        {^ref, {:data, <<"data: [DONE]\n\n">>}} ->
+        {:data, <<"data: [DONE]\n\n">>} ->
           :cont
 
-        {^ref, :done} ->
-          :done
-
-        {^ref, {:data, data}} ->
+        {:data, data} ->
           {:data, data}
 
-        {^ref, {:status, 401}} ->
+        {:status, 401} ->
           {:error, :unauthorized}
 
-        {^ref, {:status, _}} ->
+        {:status, _} ->
           :cont
 
-        {^ref, {:error, error}} when is_struct(error, Mint.TransportError) ->
+        {:error, error} when is_struct(error, Mint.TransportError) ->
           {:error, %{kind: :transport, reason: error.reason}}
 
-        {^ref, msg} ->
+        :done ->
+          :done
+
+        msg ->
           Logger.warning("Received unknown Finch response message: #{inspect(msg)}")
 
           :cont
+      end
+    end
+
+    defp mapping_receive(ref) do
+      receive do
+        {^ref, chunk} -> chunk_mapping(chunk)
       end
     end
 
@@ -59,48 +65,28 @@ defmodule Axiom.Chat.Completions do
       raise StreamingError, message: "Transport error: #{reason}", detail: detail, chunks: chunks
     end
 
-    defp build_start_fun(ref) do
-      fn ->
-        case mapping_receive(ref) do
-          {:data, data} ->
-            [data]
+    defp next_fun(ref) do
+      case mapping_receive(ref) do
+        {:data, data} ->
+          {[data], ref}
 
-          :cont ->
-            []
+        :cont ->
+          {[], ref}
 
-          :done ->
-            []
+        :done ->
+          {:halt, ref}
 
-          {:error, detail} ->
-            raise_error(detail, [])
-        end
-      end
-    end
-
-    defp build_next_fun(ref) do
-      fn chunks ->
-        case mapping_receive(ref) do
-          {:data, data} ->
-            {[data], chunks ++ [data]}
-
-          :cont ->
-            {[], chunks}
-
-          :done ->
-            {:halt, chunks}
-
-          {:error, detail} ->
-            raise_error(detail, chunks)
-        end
+        {:error, detail} ->
+          raise_error(detail, ref)
       end
     end
 
     defp cleanup(_chunks), do: :cleanup
 
-    def new(ref) do
-      body_stream = Stream.resource(build_start_fun(ref), build_next_fun(ref), &cleanup/1)
+    def new(async_request) do
+      body_stream = Stream.resource(async_request, &next_fun/1, &cleanup/1)
 
-      %__MODULE__{ref: ref, body_stream: body_stream}
+      %__MODULE__{async_request: async_request, body_stream: body_stream}
     end
   end
 
@@ -115,14 +101,16 @@ defmodule Axiom.Chat.Completions do
         {"content-type", "application/json"}
       ] ++ axiom.headers
 
-    ref =
+    async_request = fn ->
       :post
       |> Finch.build("#{axiom.base_url}/chat/completions", headers, JSON.encode!(body))
       |> Finch.async_request(axiom.finch_name || Axiom.Finch,
-        request_timeout: axiom.request_timeout || 15_000,
-        receive_timeout: axiom.receive_timeout || 30_000
+        request_timeout: axiom.request_timeout || :infinity,
+        receive_timeout: axiom.receive_timeout || :infinity,
+        pool_timeout: :infinity
       )
+    end
 
-    Created.new(ref)
+    Created.new(async_request)
   end
 end
