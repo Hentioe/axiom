@@ -1,13 +1,33 @@
 defmodule Axiom.MixProject do
   use Mix.Project
 
+  @version "0.1.0-rc.1"
+  @description "An AI chat adapter."
+
   def project do
     [
       app: :axiom,
-      version: "0.1.0",
+      version: @version,
       elixir: "~> 1.17",
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      name: "Axiom",
+      description: @description,
+      package: package(),
+      source_url: "https://github.com/Hentioe/axiom",
+      docs: [
+        # The main page in the docs
+        main: "readme",
+        extras: ["README.md"]
+      ]
+    ]
+  end
+
+  # Package metadata
+  defp package do
+    [
+      licenses: ["MIT"],
+      links: %{"GitHub" => "https://github.com/Hentioe/axiom"}
     ]
   end
 
