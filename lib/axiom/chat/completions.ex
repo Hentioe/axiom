@@ -9,7 +9,7 @@ defmodule Axiom.Chat.Completions do
     defexception [:message, :detail, chunks: []]
   end
 
-  defmodule Created do
+  defmodule Completion do
     @moduledoc false
 
     require Logger
@@ -18,42 +18,43 @@ defmodule Axiom.Chat.Completions do
 
     @type t :: %__MODULE__{async_request: (-> Finch.request_ref()), body_stream: Enumerable.t()}
 
-    def chunk_mapping(chunk) do
-      case chunk do
-        {:status, 200} ->
-          :cont
+    def resp_mapping({:status, 401}) do
+      {:error, :unauthorized}
+    end
 
-        {:headers, _} ->
-          :cont
+    def resp_mapping({:status, _}) do
+      :cont
+    end
 
-        {:data, <<"data: [DONE]\n\n">>} ->
-          :cont
+    def resp_mapping({:headers, _}) do
+      :cont
+    end
 
-        {:data, data} ->
-          {:data, data}
+    def resp_mapping({:data, <<"data: [DONE]\n\n">>}) do
+      :cont
+    end
 
-        {:status, 401} ->
-          {:error, :unauthorized}
+    def resp_mapping({:data, data}) do
+      {:data, data}
+    end
 
-        {:status, _} ->
-          :cont
+    def resp_mapping(:done) do
+      :done
+    end
 
-        {:error, error} when is_struct(error, Mint.TransportError) ->
-          {:error, %{kind: :transport, reason: error.reason}}
+    def resp_mapping({:error, error}) when is_struct(error, Mint.TransportError) do
+      {:error, %{kind: :transport, reason: error.reason}}
+    end
 
-        :done ->
-          :done
+    def resp_mapping(resp) do
+      Logger.warning("Received unknown response: #{inspect(resp)}")
 
-        msg ->
-          Logger.warning("Received unknown Finch response message: #{inspect(msg)}")
-
-          :cont
-      end
+      :cont
     end
 
     defp mapping_receive(ref) do
       receive do
-        {^ref, chunk} -> chunk_mapping(chunk)
+        {^ref, resp} -> resp_mapping(resp)
       end
     end
 
@@ -90,7 +91,8 @@ defmodule Axiom.Chat.Completions do
     end
   end
 
-  @spec create(Axiom.t(), model :: String.t(), messages :: list(), opts :: map()) :: Created.t()
+  @spec create(Axiom.t(), model :: String.t(), messages :: list(), opts :: map()) ::
+          Completion.t()
   def create(axiom, model, messages, opts \\ %{})
       when is_struct(axiom, Axiom) and is_list(messages) do
     body = apply(axiom.provider, :inputgen, [model, messages, opts])
@@ -111,6 +113,6 @@ defmodule Axiom.Chat.Completions do
       )
     end
 
-    Created.new(async_request)
+    Completion.new(async_request)
   end
 end
