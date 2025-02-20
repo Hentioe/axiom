@@ -11,20 +11,20 @@ defmodule Axiom.Parsers.ChunksParser do
 
   @ignored_data ["", "data: [DONE]"]
 
-  @spec parse(String.t()) :: [map]
-  def parse(data_str) do
+  @spec parse_data_chunks(String.t()) :: [map]
+  def parse_data_chunks(data_str) do
     data_str
     |> String.split("\n\n")
     |> Enum.reject(&data_ignored?/1)
-    |> Enum.map(&parse_one!/1)
+    |> Enum.map(&parse_data_one!/1)
   end
 
-  defp parse_one!(<<"data:" <> rest>>) do
+  defp parse_data_one!(<<"data:" <> rest>>) do
     rest |> String.trim() |> JSON.decode!()
   end
 
-  defp parse_one!(unkown_data) do
-    raise ParsingError, message: "Invalid chunk data", data: unkown_data
+  defp parse_data_one!(unknown_data) do
+    raise ParsingError, message: "Invalid data chunk", data: unknown_data
   end
 
   defp data_ignored?(one_data) do
