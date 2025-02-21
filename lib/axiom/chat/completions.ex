@@ -109,9 +109,9 @@ defmodule Axiom.Chat.Completions do
       :post
       |> Finch.build("#{axiom.base_url}#{endpoint}", headers, JSON.encode!(body))
       |> Finch.async_request(axiom.finch_name || Axiom.Finch,
-        request_timeout: axiom.request_timeout || 15 * 1000,
+        request_timeout: axiom.request_timeout || :infinity,
         receive_timeout: axiom.receive_timeout || :infinity,
-        pool_timeout: :infinity
+        pool_timeout: 15 * 1000
       )
     end
 
