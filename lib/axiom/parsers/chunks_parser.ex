@@ -9,25 +9,28 @@ defmodule Axiom.Parsers.ChunksParser do
     defexception [:message, :data]
   end
 
-  @ignored_data ["", "data: [DONE]"]
-
   @spec parse_data_chunks(String.t()) :: [map]
   def parse_data_chunks(data_str) do
     data_str
     |> String.split("\n\n")
-    |> Enum.reject(&data_ignored?/1)
-    |> Enum.map(&parse_data_one!/1)
+    |> Enum.reject(&ignored?/1)
+    |> Enum.map(&parse_data_chuhk!/1)
   end
 
-  defp parse_data_one!(<<"data:" <> rest>>) do
+  defp parse_data_chuhk!(<<"data:" <> rest>>) do
     rest |> String.trim() |> JSON.decode!()
   end
 
-  defp parse_data_one!(unknown_data) do
+  defp parse_data_chuhk!(unknown_data) do
     raise ParsingError, message: "Invalid data chunk", data: unknown_data
   end
 
-  defp data_ignored?(one_data) do
-    Enum.member?(@ignored_data, String.trim(one_data))
+  defp ignored?(chunk_text) do
+    cond do
+      String.trim(chunk_text) == "" -> true
+      String.starts_with?(chunk_text, "event:") -> true
+      chunk_text == "data: [DONE]" -> true
+      true -> false
+    end
   end
 end

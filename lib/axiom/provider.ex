@@ -1,8 +1,14 @@
 defmodule Axiom.Provider do
   @moduledoc false
 
+  @type endpoint_name :: :completions
+  @type auth_header :: String.t()
+  @type auth_value :: String.t()
+
   @callback config(opts :: keyword) :: map()
   @callback inputgen(model :: String.t(), messages :: [map], opts :: map) :: map
+  @callback endpoint(name :: endpoint_name) :: String.t()
+  @callback authgen(api_key :: String.t()) :: {auth_header, auth_value}
 
   defmacro __using__(_) do
     quote do
@@ -25,7 +31,13 @@ defmodule Axiom.Provider do
         )
       end
 
-      defoverridable inputgen: 3
+      @spec endpoint(Axiom.Provider.endpoint_name()) :: String.t()
+      def endpoint(:completions), do: "/chat/completions"
+
+      @spec authgen(String.t()) :: {Axiom.Provider.auth_header(), Axiom.Provider.auth_value()}
+      def authgen(api_key), do: {"authorization", "Bearer #{api_key}"}
+
+      defoverridable inputgen: 3, endpoint: 1, authgen: 1
     end
   end
 end

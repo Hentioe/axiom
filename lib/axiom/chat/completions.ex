@@ -99,15 +99,17 @@ defmodule Axiom.Chat.Completions do
 
     headers =
       [
-        {"authorization", "Bearer #{axiom.api_key}"},
+        apply(axiom.provider, :authgen, [axiom.api_key]),
         {"content-type", "application/json"}
       ] ++ axiom.headers
 
+    endpoint = apply(axiom.provider, :endpoint, [:completions])
+
     async_request = fn ->
       :post
-      |> Finch.build("#{axiom.base_url}/chat/completions", headers, JSON.encode!(body))
+      |> Finch.build("#{axiom.base_url}#{endpoint}", headers, JSON.encode!(body))
       |> Finch.async_request(axiom.finch_name || Axiom.Finch,
-        request_timeout: axiom.request_timeout || :infinity,
+        request_timeout: axiom.request_timeout || 15 * 1000,
         receive_timeout: axiom.receive_timeout || :infinity,
         pool_timeout: :infinity
       )
