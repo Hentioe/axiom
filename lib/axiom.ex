@@ -61,4 +61,18 @@ defmodule Axiom do
   def json_adapter do
     Application.get_env(:axiom, :json_adapter)
   end
+
+  @doc """
+  Returns `true` if term is a request_ref, otherwise returns `false`.
+
+  ## Examples
+
+  iex> Axiom.is_request_ref({Finch.HTTP1.Pool, self()})
+  true
+  """
+  defguard is_request_ref(term)
+           when is_tuple(term) and
+                  tuple_size(term) == 2 and
+                  elem(term, 0) in [Finch.HTTP1.Pool, Finch.HTTP2.Pool] and
+                  is_pid(elem(term, 1))
 end
