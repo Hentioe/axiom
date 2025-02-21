@@ -12,7 +12,7 @@ defmodule Axiom do
   ]
 
   @type t :: %__MODULE__{
-          provider: module(),
+          provider: Axiom.Provider.t(),
           base_url: String.t(),
           api_key: String.t(),
           request_timeout: timeout,
@@ -21,7 +21,7 @@ defmodule Axiom do
           headers: Finch.Request.headers()
         }
 
-  @spec build(module(), String.t(), keyword()) :: t()
+  @spec build(Axiom.Provider.t(), String.t(), keyword()) :: t()
   def build(provider, api_key, opts \\ []) do
     args =
       %{
@@ -60,6 +60,11 @@ defmodule Axiom do
 
   def json_adapter do
     Application.get_env(:axiom, :json_adapter)
+  end
+
+  @spec decoderr(Axiom.Provider.t(), String.t()) :: map()
+  def decoderr(provider, data) do
+    apply(provider, :decoderr, [data])
   end
 
   @doc """

@@ -3,7 +3,7 @@ defmodule Axiom.Chat.Completions do
 
   alias Axiom.JSON
 
-  defmodule StreamingError do
+  defmodule AsyncRespError do
     @moduledoc false
 
     defexception [:message, :detail, chunks: []]
@@ -14,16 +14,27 @@ defmodule Axiom.Chat.Completions do
 
     require Logger
 
-    defstruct [:async_request, :body_stream]
+    defstruct [:async_request, :body_stream, :provider]
 
     @type t :: %__MODULE__{async_request: (-> Finch.request_ref()), body_stream: Enumerable.t()}
 
+    @spec resp_mapping(any) ::
+            :cont
+            | :done
+            | :unauthorized
+            | {:data, String.t()}
+            | {:error, %{kind: atom(), reason: any()}}
+            | {:unexpected_status, non_neg_integer()}
     def resp_mapping({:status, 401}) do
-      {:error, :unauthorized}
+      :unauthorized
     end
 
-    def resp_mapping({:status, _}) do
+    def resp_mapping({:status, 200}) do
       :cont
+    end
+
+    def resp_mapping({:status, code}) do
+      {:unexpected_status, code}
     end
 
     def resp_mapping({:headers, _}) do
@@ -59,35 +70,79 @@ defmodule Axiom.Chat.Completions do
     end
 
     defp raise_error(:unauthorized = detail, chunks) do
-      raise StreamingError, message: "Unauthorized", detail: detail, chunks: chunks
+      raise AsyncRespError, message: "Unauthorized", detail: detail, chunks: chunks
     end
 
     defp raise_error(%{kind: :transport, reason: reason} = detail, chunks) do
-      raise StreamingError, message: "Transport error: #{reason}", detail: detail, chunks: chunks
+      raise AsyncRespError, message: "Transport error: #{reason}", detail: detail, chunks: chunks
     end
 
-    defp next_fun(ref) do
+    defp raise_error(%{kind: :unexpected_status, code: code} = detail, chunks) do
+      raise AsyncRespError, message: "Unexpected status: #{code}", detail: detail, chunks: chunks
+    end
+
+    defp start_fun(provider, async_request) do
+      ref = async_request.()
+
+      %{ref: ref, state: %{}, chunks: [], provider: provider}
+    end
+
+    defp next_fun(
+           %{ref: ref, state: %{unexpected_status: code}, chunks: chunks, provider: provider} =
+             acc
+         ) do
       case mapping_receive(ref) do
         {:data, data} ->
-          {[data], ref}
+          raise_error(
+            %{kind: :unexpected_status, code: code, body: apply(provider, :decoderr, [data])},
+            chunks
+          )
 
         :cont ->
-          {[], ref}
+          {[], acc}
 
         :done ->
-          {:halt, ref}
+          {:halt, acc}
 
         {:error, detail} ->
-          raise_error(detail, ref)
+          raise_error(detail, chunks)
+      end
+    end
+
+    defp next_fun(%{ref: ref, chunks: chunks} = acc) do
+      case mapping_receive(ref) do
+        {:data, data} ->
+          acc = %{acc | chunks: chunks ++ [data]}
+
+          {[data], acc}
+
+        :cont ->
+          {[], acc}
+
+        :done ->
+          {:halt, acc}
+
+        {:unexpected_status, code} ->
+          # Attach status to capture the error body later
+          acc = %{acc | state: %{unexpected_status: code}}
+
+          {[], acc}
+
+        :unauthorized ->
+          raise_error(:unauthorized, chunks)
+
+        {:error, detail} ->
+          raise_error(detail, chunks)
       end
     end
 
     defp cleanup(_chunks), do: :cleanup
 
-    def new(async_request) do
-      body_stream = Stream.resource(async_request, &next_fun/1, &cleanup/1)
+    def new(provider, async_request) do
+      body_stream =
+        Stream.resource(fn -> start_fun(provider, async_request) end, &next_fun/1, &cleanup/1)
 
-      %__MODULE__{async_request: async_request, body_stream: body_stream}
+      %__MODULE__{provider: provider, async_request: async_request, body_stream: body_stream}
     end
   end
 
@@ -115,6 +170,6 @@ defmodule Axiom.Chat.Completions do
       )
     end
 
-    Completion.new(async_request)
+    Completion.new(axiom.provider, async_request)
   end
 end
