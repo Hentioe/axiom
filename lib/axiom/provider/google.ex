@@ -154,9 +154,4 @@ defmodule Axiom.Provider.Google do
   #     "status" => "INVALID_ARGUMENT"
   #   }
   # }
-
-  @impl true
-  def errstr(%{"error" => %{"message" => message}}) do
-    message
-  end
 end
