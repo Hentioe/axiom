@@ -12,6 +12,7 @@ defmodule Axiom.Provider do
   @callback authgen(api_key :: String.t()) :: {auth_header, auth_value}
   @callback decode_chunks(data :: String.t()) :: [map()]
   @callback decoderr(data :: String.t()) :: map()
+  @callback errstr(error :: map) :: String.t()
 
   defmacro __using__(_) do
     quote do
@@ -50,7 +51,15 @@ defmodule Axiom.Provider do
         Axiom.JSON.decode!(data)
       end
 
-      defoverridable inputgen: 3, endpoint: 1, authgen: 1, decode_chunks: 1, decoderr: 1
+      @spec errstr(map) :: String.t()
+      def errstr(error), do: inspect(error)
+
+      defoverridable inputgen: 3,
+                     endpoint: 1,
+                     authgen: 1,
+                     decode_chunks: 1,
+                     decoderr: 1,
+                     errstr: 1
     end
   end
 end

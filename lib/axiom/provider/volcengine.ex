@@ -34,7 +34,7 @@ defmodule Axiom.Provider.Volcengine do
     )
   end
 
-  # Error example:
+  # Response error body example:
   # %{
   #   "error" => %{
   #     "code" => "InvalidEndpointOrModel.NotFound",
@@ -43,4 +43,9 @@ defmodule Axiom.Provider.Volcengine do
   #     "type" => "NotFound"
   #   }
   # }
+
+  @impl true
+  def errstr(%{"error" => %{"message" => message}}) do
+    message
+  end
 end

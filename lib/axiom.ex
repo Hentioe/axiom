@@ -67,6 +67,11 @@ defmodule Axiom do
     apply(provider, :decoderr, [data])
   end
 
+  @spec errstr(Axiom.Provider.t(), map()) :: String.t()
+  def errstr(provider, error) do
+    apply(provider, :errstr, [error])
+  end
+
   @doc """
   Returns `true` if term is a request_ref, otherwise returns `false`.
 
