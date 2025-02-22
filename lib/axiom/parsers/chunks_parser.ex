@@ -10,8 +10,8 @@ defmodule Axiom.Parsers.ChunksParser do
   end
 
   @spec parse_data_chunks(String.t()) :: [map]
-  def parse_data_chunks(data_str) do
-    data_str
+  def parse_data_chunks(data) do
+    data
     |> String.split("\n\n")
     |> Enum.reject(&ignored?/1)
     |> Enum.map(&parse_data_chuhk!/1)

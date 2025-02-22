@@ -3,7 +3,7 @@ defmodule Axiom.Chat.Completions do
 
   alias Axiom.JSON
 
-  defmodule AsyncRespError do
+  defmodule ResponseError do
     @moduledoc false
 
     defexception [:message, :detail, chunks: []]
@@ -70,15 +70,15 @@ defmodule Axiom.Chat.Completions do
     end
 
     defp raise_error(:unauthorized = detail, chunks) do
-      raise AsyncRespError, message: "Unauthorized", detail: detail, chunks: chunks
+      raise ResponseError, message: "Unauthorized", detail: detail, chunks: chunks
     end
 
     defp raise_error(%{kind: :transport, reason: reason} = detail, chunks) do
-      raise AsyncRespError, message: "Transport error: #{reason}", detail: detail, chunks: chunks
+      raise ResponseError, message: "Transport error: #{reason}", detail: detail, chunks: chunks
     end
 
     defp raise_error(%{kind: :unexpected_status, code: code} = detail, chunks) do
-      raise AsyncRespError, message: "Unexpected status: #{code}", detail: detail, chunks: chunks
+      raise ResponseError, message: "Unexpected status: #{code}", detail: detail, chunks: chunks
     end
 
     defp start_fun(provider, async_request) do
@@ -112,9 +112,11 @@ defmodule Axiom.Chat.Completions do
     defp next_fun(%{ref: ref, chunks: chunks} = acc) do
       case mapping_receive(ref) do
         {:data, data} ->
-          acc = %{acc | chunks: chunks ++ [data]}
+          parts = apply(acc.provider, :decode_chunks, [data])
 
-          {[data], acc}
+          acc = %{acc | chunks: chunks ++ parts}
+
+          {[parts], acc}
 
         :cont ->
           {[], acc}
