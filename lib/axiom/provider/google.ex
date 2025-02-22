@@ -53,7 +53,7 @@ defmodule Axiom.Provider.Google do
       case role do
         :user -> :user
         :system -> :user
-        :assistant -> :assistant
+        :assistant -> :model
       end
 
     %{
