@@ -72,6 +72,16 @@ defmodule Axiom do
     apply(provider, :errstr, [error])
   end
 
+  @spec chunks_content(Axiom.t(), [map()]) :: String.t()
+  def chunks_content(axiom, chunks) do
+    apply(axiom.provider, :chunks_content, [chunks])
+  end
+
+  @spec chunks_reasoning_content(Axiom.t(), [map()]) :: String.t()
+  def chunks_reasoning_content(axiom, chunks) do
+    apply(axiom.provider, :chunks_reasoning_content, [chunks])
+  end
+
   @spec chunks_total_tokens(Axiom.t(), [map()]) :: non_neg_integer()
   def chunks_total_tokens(axiom, chunks) do
     apply(axiom.provider, :chunks_total_tokens, [chunks])
