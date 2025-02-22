@@ -22,7 +22,7 @@ defmodule Axiom.Provider.Anthropic do
   def endpoint(:completions), do: "/messages"
 
   @impl true
-  def authgen(api_key), do: {"x-api-key", api_key}
+  def authgen(api_key), do: {:header, {"x-api-key", api_key}}
 
   # Legacy completion API parameters
   # @impl true

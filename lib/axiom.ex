@@ -62,14 +62,19 @@ defmodule Axiom do
     Application.get_env(:axiom, :json_adapter)
   end
 
-  @spec decoderr(Axiom.Provider.t(), String.t()) :: map()
-  def decoderr(provider, data) do
-    apply(provider, :decoderr, [data])
+  @spec decode_chunks(Axiom.t(), String.t()) :: [map()]
+  def decode_chunks(axiom, data) do
+    apply(axiom.provider, :decode_chunks, [data])
   end
 
-  @spec errstr(Axiom.Provider.t(), map()) :: String.t()
-  def errstr(provider, error) do
-    apply(provider, :errstr, [error])
+  @spec decoderr(Axiom.t(), String.t()) :: map()
+  def decoderr(axiom, data) do
+    apply(axiom.provider, :decoderr, [data])
+  end
+
+  @spec errstr(Axiom.t(), map()) :: String.t()
+  def errstr(axiom, error) do
+    apply(axiom.provider, :errstr, [error])
   end
 
   @spec chunks_content(Axiom.t(), [map()]) :: String.t()

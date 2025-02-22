@@ -7,9 +7,10 @@ defmodule Axiom.Provider do
   @type auth_value :: String.t()
 
   @callback config(opts :: keyword) :: map()
-  @callback inputgen(model :: String.t(), messages :: [map], opts :: map) :: map
+  @callback authgen(api_key :: String.t()) ::
+              {:header, {auth_header, auth_value}} | {:query, map()}
   @callback endpoint(name :: endpoint_name) :: String.t()
-  @callback authgen(api_key :: String.t()) :: {auth_header, auth_value}
+  @callback inputgen(model :: String.t(), messages :: [map], opts :: map) :: map
   @callback decode_chunks(data :: String.t()) :: [map()]
   @callback decoderr(data :: String.t()) :: map()
   @callback errstr(error :: map) :: String.t()
@@ -43,8 +44,10 @@ defmodule Axiom.Provider do
       @spec endpoint(Axiom.Provider.endpoint_name()) :: String.t()
       def endpoint(:completions), do: "/chat/completions"
 
-      @spec authgen(String.t()) :: {Axiom.Provider.auth_header(), Axiom.Provider.auth_value()}
-      def authgen(api_key), do: {"authorization", "Bearer #{api_key}"}
+      @spec authgen(String.t()) ::
+              {:header, {Axiom.Provider.auth_header(), Axiom.Provider.auth_value()}}
+              | {:query, map()}
+      def authgen(api_key), do: {:header, {"authorization", "Bearer #{api_key}"}}
 
       @spec decode_chunks(String.t()) :: [map()]
       def decode_chunks(data) do

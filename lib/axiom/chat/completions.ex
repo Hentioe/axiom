@@ -14,9 +14,13 @@ defmodule Axiom.Chat.Completions do
 
     require Logger
 
-    defstruct [:async_request, :body_stream, :provider]
+    defstruct [:axiom, :async_request, :body_stream]
 
-    @type t :: %__MODULE__{async_request: (-> Finch.request_ref()), body_stream: Enumerable.t()}
+    @type t :: %__MODULE__{
+            axiom: Axiom.t(),
+            async_request: (-> Finch.request_ref()),
+            body_stream: Enumerable.t()
+          }
 
     @spec resp_mapping(any) ::
             :cont
@@ -140,31 +144,56 @@ defmodule Axiom.Chat.Completions do
 
     defp cleanup(_chunks), do: :cleanup
 
-    def new(provider, async_request) do
+    def new(axiom, async_request) do
       body_stream =
-        Stream.resource(fn -> start_fun(provider, async_request) end, &next_fun/1, &cleanup/1)
+        Stream.resource(
+          fn -> start_fun(axiom.provider, async_request) end,
+          &next_fun/1,
+          &cleanup/1
+        )
 
-      %__MODULE__{provider: provider, async_request: async_request, body_stream: body_stream}
+      %__MODULE__{axiom: axiom, async_request: async_request, body_stream: body_stream}
     end
   end
+
+  @base_headers [
+    {"content-type", "application/json"}
+  ]
 
   @spec create(Axiom.t(), model :: String.t(), messages :: list(), opts :: map()) ::
           Completion.t()
   def create(axiom, model, messages, opts \\ %{})
       when is_struct(axiom, Axiom) and is_list(messages) do
     body = apply(axiom.provider, :inputgen, [model, messages, opts])
+    auth = apply(axiom.provider, :authgen, [axiom.api_key])
 
-    headers =
-      [
-        apply(axiom.provider, :authgen, [axiom.api_key]),
-        {"content-type", "application/json"}
-      ] ++ axiom.headers
+    headers = auth_headers(auth)
+    query = auth_query(auth)
 
+    query_text = if query, do: "?" <> URI.encode_query(query), else: ""
+
+    headers = headers ++ axiom.headers ++ @base_headers
     endpoint = apply(axiom.provider, :endpoint, [:completions])
+
+    base_url =
+      if is_struct(axiom.base_url, Axiom.UrlBuilder) do
+        required = %{}
+
+        required =
+          if Enum.member?(axiom.base_url.required, :model) do
+            Map.put(required, :model, model)
+          else
+            %{}
+          end
+
+        axiom.base_url.build.(required)
+      else
+        axiom.base_url
+      end
 
     async_request = fn ->
       :post
-      |> Finch.build("#{axiom.base_url}#{endpoint}", headers, JSON.encode!(body))
+      |> Finch.build("#{base_url}#{endpoint}#{query_text}", headers, JSON.encode!(body))
       |> Finch.async_request(axiom.finch_name || Axiom.Finch,
         request_timeout: axiom.request_timeout || :infinity,
         receive_timeout: axiom.receive_timeout || :infinity,
@@ -172,6 +201,22 @@ defmodule Axiom.Chat.Completions do
       )
     end
 
-    Completion.new(axiom.provider, async_request)
+    Completion.new(axiom, async_request)
+  end
+
+  defp auth_headers({:header, header}) do
+    [header]
+  end
+
+  defp auth_headers(_) do
+    []
+  end
+
+  defp auth_query({:query, params}) do
+    params
+  end
+
+  defp auth_query(_) do
+    nil
   end
 end
