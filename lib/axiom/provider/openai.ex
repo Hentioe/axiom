@@ -1,4 +1,4 @@
-defmodule Axiom.Provider.OpenAi do
+defmodule Axiom.Provider.OpenAI do
   @moduledoc false
 
   use Axiom.Provider
