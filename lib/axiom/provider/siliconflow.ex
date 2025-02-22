@@ -1,4 +1,4 @@
-defmodule Axiom.Provider.Siliconflow do
+defmodule Axiom.Provider.SiliconFlow do
   @moduledoc false
 
   use Axiom.Provider
