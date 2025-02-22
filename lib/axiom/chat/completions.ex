@@ -14,10 +14,11 @@ defmodule Axiom.Chat.Completions do
 
     require Logger
 
-    defstruct [:axiom, :async_request, :body_stream]
+    defstruct [:axiom, :model, :async_request, :body_stream]
 
     @type t :: %__MODULE__{
             axiom: Axiom.t(),
+            model: String.t(),
             async_request: (-> Finch.request_ref()),
             body_stream: Enumerable.t()
           }
@@ -144,7 +145,7 @@ defmodule Axiom.Chat.Completions do
 
     defp cleanup(_chunks), do: :cleanup
 
-    def new(axiom, async_request) do
+    def new(axiom, model, async_request) do
       body_stream =
         Stream.resource(
           fn -> start_fun(axiom.provider, async_request) end,
@@ -152,7 +153,12 @@ defmodule Axiom.Chat.Completions do
           &cleanup/1
         )
 
-      %__MODULE__{axiom: axiom, async_request: async_request, body_stream: body_stream}
+      %__MODULE__{
+        axiom: axiom,
+        model: model,
+        async_request: async_request,
+        body_stream: body_stream
+      }
     end
   end
 
@@ -201,7 +207,7 @@ defmodule Axiom.Chat.Completions do
       )
     end
 
-    Completion.new(axiom, async_request)
+    Completion.new(axiom, model, async_request)
   end
 
   defp auth_headers({:header, header}) do
