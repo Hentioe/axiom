@@ -60,7 +60,13 @@ defmodule Axiom.Provider do
       end
 
       @spec errstr(map) :: String.t()
-      def errstr(error), do: inspect(error)
+      def errstr(%{"error" => %{"message" => message}}) do
+        message
+      end
+
+      def errstr(error) do
+        inspect(error)
+      end
 
       @spec chunks_total_tokens([map()]) :: non_neg_integer()
       def chunks_total_tokens(chunks) do

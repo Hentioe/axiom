@@ -43,9 +43,4 @@ defmodule Axiom.Provider.Volcengine do
   #     "type" => "NotFound"
   #   }
   # }
-
-  @impl true
-  def errstr(%{"error" => %{"message" => message}}) do
-    message
-  end
 end
