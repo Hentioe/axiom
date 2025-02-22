@@ -72,6 +72,21 @@ defmodule Axiom do
     apply(provider, :errstr, [error])
   end
 
+  @spec chunks_total_tokens(Axiom.t(), [map()]) :: non_neg_integer()
+  def chunks_total_tokens(axiom, chunks) do
+    apply(axiom.provider, :chunks_total_tokens, [chunks])
+  end
+
+  @spec chunks_prompt_tokens(Axiom.t(), [map()]) :: non_neg_integer()
+  def chunks_prompt_tokens(axiom, chunks) do
+    apply(axiom.provider, :chunks_prompt_tokens, [chunks])
+  end
+
+  @spec chunks_completion_tokens(Axiom.t(), [map()]) :: non_neg_integer()
+  def chunks_completion_tokens(axiom, chunks) do
+    apply(axiom.provider, :chunks_completion_tokens, [chunks])
+  end
+
   @doc """
   Returns `true` if term is a request_ref, otherwise returns `false`.
 

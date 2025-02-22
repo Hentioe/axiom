@@ -13,6 +13,9 @@ defmodule Axiom.Provider do
   @callback decode_chunks(data :: String.t()) :: [map()]
   @callback decoderr(data :: String.t()) :: map()
   @callback errstr(error :: map) :: String.t()
+  @callback chunks_total_tokens(chunks :: [map()]) :: non_neg_integer()
+  @callback chunks_prompt_tokens(chunks :: [map()]) :: non_neg_integer()
+  @callback chunks_completion_tokens(chunks :: [map()]) :: non_neg_integer()
 
   defmacro __using__(_) do
     quote do
@@ -54,12 +57,30 @@ defmodule Axiom.Provider do
       @spec errstr(map) :: String.t()
       def errstr(error), do: inspect(error)
 
+      @spec chunks_total_tokens([map()]) :: non_neg_integer()
+      def chunks_total_tokens(chunks) do
+        Axiom.Helper.chunks_total_tokens(chunks)
+      end
+
+      @spec chunks_prompt_tokens([map()]) :: non_neg_integer()
+      def chunks_prompt_tokens(chunks) do
+        Axiom.Helper.chunks_prompt_tokens(chunks)
+      end
+
+      @spec chunks_completion_tokens([map()]) :: non_neg_integer()
+      def chunks_completion_tokens(chunks) do
+        Axiom.Helper.chunks_completion_tokens(chunks)
+      end
+
       defoverridable inputgen: 3,
                      endpoint: 1,
                      authgen: 1,
                      decode_chunks: 1,
                      decoderr: 1,
-                     errstr: 1
+                     errstr: 1,
+                     chunks_total_tokens: 1,
+                     chunks_prompt_tokens: 1,
+                     chunks_completion_tokens: 1
     end
   end
 end
