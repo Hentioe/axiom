@@ -1,7 +1,7 @@
 defmodule Axiom.MixProject do
   use Mix.Project
 
-  @version "0.1.0-rc.7-dev"
+  @version "0.1.0-rc.7"
   @description "An AI chat adapter."
 
   def project do
