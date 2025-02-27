@@ -35,7 +35,10 @@ defmodule Axiom.Provider do
           %{
             model: model,
             messages: messages,
-            stream: true
+            stream: true,
+            stream_options: %{
+              include_usage: true
+            }
           },
           opts
         )

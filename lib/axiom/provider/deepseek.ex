@@ -6,7 +6,7 @@ defmodule Axiom.Provider.DeepSeek do
   @impl true
   def config(_opts) do
     %{
-      base_url: "https://api.deepseek.com/v1"
+      base_url: "https://api.deepseek.com"
     }
   end
 end

@@ -29,6 +29,7 @@ defmodule Axiom.Parsers.ChunksParser do
     cond do
       String.trim(chunk_text) == "" -> true
       String.starts_with?(chunk_text, "event:") -> true
+      chunk_text == ": keep-alive" -> true
       chunk_text == "data: [DONE]" -> true
       true -> false
     end

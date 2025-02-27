@@ -23,8 +23,8 @@ defmodule Axiom.Helper do
   def chunks_completion_tokens(chunks), do: chunks_tokens(chunks, "completion_tokens")
 
   defp chunks_tokens(chunks, usage_field) when is_list(chunks) do
-    Enum.reduce(chunks, 0, fn %{"usage" => usage}, total ->
-      total + usage_field_value(usage || %{}, usage_field)
+    Enum.reduce(chunks, 0, fn chunk, total ->
+      total + usage_field_value(chunk["usage"] || %{}, usage_field)
     end)
   end
 

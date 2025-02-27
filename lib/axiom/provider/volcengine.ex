@@ -13,27 +13,6 @@ defmodule Axiom.Provider.Volcengine do
     }
   end
 
-  @impl true
-  def inputgen(model, messages, opts) do
-    opts =
-      opts
-      |> Map.delete(:stream)
-      |> Map.delete("stream")
-
-    Map.merge(
-      %{
-        model: model,
-        messages: messages,
-        stream: true,
-        stream_options: %{
-          # If this parameter is not present, the token usage cannot be obtained
-          include_usage: true
-        }
-      },
-      opts
-    )
-  end
-
   # Response error body example:
   # %{
   #   "error" => %{
