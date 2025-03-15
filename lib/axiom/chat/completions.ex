@@ -6,7 +6,15 @@ defmodule Axiom.Chat.Completions do
   defmodule ResponseError do
     @moduledoc false
 
-    defexception [:message, :detail, chunks: []]
+    defexception [:message, :kind, :reason, :detail, chunks: []]
+
+    @type t :: %__MODULE__{
+            message: String.t(),
+            kind: atom(),
+            reason: any(),
+            detail: any(),
+            chunks: [map()]
+          }
   end
 
   defmodule Completion do
@@ -74,16 +82,29 @@ defmodule Axiom.Chat.Completions do
       end
     end
 
-    defp raise_error(:unauthorized = detail, chunks) do
-      raise ResponseError, message: "Unauthorized", detail: detail, chunks: chunks
+    defp raise_error(:unauthorized, chunks) do
+      raise ResponseError,
+        message: "Unauthorized",
+        kind: :api,
+        reason: :unauthorized,
+        chunks: chunks
     end
 
-    defp raise_error(%{kind: :transport, reason: reason} = detail, chunks) do
-      raise ResponseError, message: "Transport error: #{reason}", detail: detail, chunks: chunks
+    defp raise_error(%{kind: :transport, reason: reason}, chunks) do
+      raise ResponseError,
+        message: "Transport error: #{reason}",
+        kind: :transport,
+        reason: reason,
+        chunks: chunks
     end
 
-    defp raise_error(%{kind: :unexpected_status, code: code} = detail, chunks) do
-      raise ResponseError, message: "Unexpected status: #{code}", detail: detail, chunks: chunks
+    defp raise_error(%{kind: :unexpected_status, code: code}, chunks) do
+      raise ResponseError,
+        message: "Unexpected status: #{code}",
+        kind: :api,
+        reason: :unexpected_status,
+        detail: code,
+        chunks: chunks
     end
 
     defp start_fun(provider, async_request) do
